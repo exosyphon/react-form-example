@@ -1,124 +1,213 @@
-import Image from 'next/image'
-import { Inter } from 'next/font/google'
-
-const inter = Inter({ subsets: ['latin'] })
+import React, { useEffect, useState, useReducer } from 'react';
+import ReactDOM from 'react-dom';
 
 export default function Home() {
+  type Event = {
+    name: string;
+    value: string | number | Date | boolean;
+    type: string;
+  };
+
+  type Entry = {
+    guestName: string;
+    numberOfNights: number;
+    checkinDate: Date;
+    checkoutDate: Date;
+    status: string;
+    payout: number;
+    sevenPercentAlreadyPaid?: boolean;
+    fivePercentTaxAmount?: number;
+    sevenPercentTaxAmount?: number;
+    baseRate?: number;
+  };
+
+  const [data, setData] = useState<Entry[]>([
+    {
+      guestName: 'Bob Saget',
+      numberOfNights: 10,
+      checkinDate: new Date(2023, 3, 5),
+      checkoutDate: new Date(2023, 3, 15),
+      status: 'Booked',
+      payout: 2321.42,
+    },
+    {
+      guestName: 'Tom Riddle',
+      numberOfNights: 3,
+      checkinDate: new Date(2023, 3, 15),
+      checkoutDate: new Date(2023, 3, 18),
+      status: 'Booked',
+      payout: 532.22,
+    },
+    {
+      guestName: 'Collin F.',
+      numberOfNights: 6,
+      checkinDate: new Date(2023, 4, 5),
+      checkoutDate: new Date(2023, 4, 11),
+      status: 'Booked',
+      payout: 1000,
+    },
+  ]);
+  const [cancelFormSubmission, setCancelFormSubmission] = useState<boolean>();
+
+  const formReducer = (state: Partial<Entry>, event: Event) => {
+    switch (event.type) {
+      case 'reset':
+        return {};
+      case 'update':
+        return {
+          ...state,
+          [event.name]: event.value,
+        };
+      default:
+        return state;
+    }
+  };
+
+  const [editableData, setEditableData] = useReducer(formReducer, {
+    guestName: '',
+    numberOfNights: 0,
+    checkinDate: new Date(),
+    checkoutDate: new Date(),
+    status: '',
+    payout: 0,
+  });
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const isCheckbox = e.target.type === 'checkbox';
+
+    setEditableData({
+      name: e.target.name,
+      value: isCheckbox ? e.target.checked : e.target.value,
+      type: 'update',
+    });
+  };
+
+  const submitEditableData = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!cancelFormSubmission) {
+      const formData = Object.fromEntries(new FormData(e.currentTarget));
+      const updatedData = data.map((item: Entry) => {
+        if (new Date(item.checkinDate).getTime() == new Date(formData.checkinDate as string).getTime()) {
+          item.fivePercentTaxAmount = Number(formData.fivePercentTaxAmount);
+          item.sevenPercentTaxAmount = Number(formData.sevenPercentTaxAmount);
+          item.baseRate = Number(formData.baseRate);
+          item.sevenPercentAlreadyPaid = Boolean(formData.sevenPercentAlreadyPaid);
+        }
+        return item;
+      });
+      setData(updatedData);
+    }
+    setEditableData({ type: 'reset', name: '', value: '' });
+  };
+
+  function renderItem(item: Entry, index: number): React.ReactElement {
+    return (
+      <tr key={index} style={{ backgroundColor: item.sevenPercentAlreadyPaid ? 'green' : '' }}>
+        <td>{item.guestName}</td>
+        <td>
+          {item.checkinDate instanceof Date
+            ? item.checkinDate.toLocaleDateString()
+            : new Date(item.checkinDate).toLocaleDateString()}
+        </td>
+        <td>
+          {item.checkoutDate instanceof Date
+            ? item.checkoutDate.toLocaleDateString()
+            : new Date(item.checkoutDate).toLocaleDateString()}
+        </td>
+        <td>{item.status}</td>
+        <td>${item.payout}</td>
+        <td>${item.fivePercentTaxAmount}</td>
+        <td>${item.sevenPercentTaxAmount}</td>
+        <td>${item.baseRate}</td>
+        <td>
+          <button
+            onClick={() => {
+              window.scrollTo(0, 0);
+              setEditableData({ type: 'reset', name: '', value: '' });
+              Object.entries(item).forEach(([key, value]) =>
+                setEditableData({ name: key, value: value, type: 'update' })
+              );
+            }}
+          >
+            Edit
+          </button>
+        </td>
+      </tr>
+    );
+  }
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-24">
-      <div className="z-10 w-full max-w-5xl items-center justify-between font-mono text-sm lg:flex">
-        <p className="fixed left-0 top-0 flex w-full justify-center border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto  lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
-          Get started by editing&nbsp;
-          <code className="font-mono font-bold">src/pages/index.tsx</code>
-        </p>
-        <div className="fixed bottom-0 left-0 flex h-48 w-full items-end justify-center bg-gradient-to-t from-white via-white dark:from-black dark:via-black lg:static lg:h-auto lg:w-auto lg:bg-none">
-          <a
-            className="pointer-events-none flex place-items-center gap-2 p-8 lg:pointer-events-auto lg:p-0"
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            By{' '}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className="dark:invert"
-              width={100}
-              height={24}
-              priority
+    <>
+      {editableData?.guestName && editableData?.guestName?.length > 0 && (
+        <form
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '1rem',
+            margin: '1rem 0',
+            alignItems: 'start',
+          }}
+          onSubmit={submitEditableData}
+        >
+          <div>
+            <input type="hidden" name="checkinDate" value={editableData.checkinDate?.toString()} />
+          </div>
+          <div>
+            <label>5% Tax</label>
+            <input
+              type="number"
+              name="fivePercentTaxAmount"
+              value={editableData.fivePercentTaxAmount || ''}
+              onChange={handleChange}
             />
-          </a>
-        </div>
-      </div>
-
-      <div className="relative flex place-items-center before:absolute before:h-[300px] before:w-[480px] before:-translate-x-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:blur-2xl before:content-[''] after:absolute after:-z-20 after:h-[180px] after:w-[240px] after:translate-x-1/3 after:bg-gradient-conic after:from-sky-200 after:via-blue-200 after:blur-2xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-blue-700/10 after:dark:from-sky-900 after:dark:via-[#0141ff]/40 before:lg:h-[360px]">
-        <Image
-          className="relative dark:drop-shadow-[0_0_0.3rem_#ffffff70] dark:invert"
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
-        />
-      </div>
-
-      <div className="mb-32 grid text-center lg:mb-0 lg:grid-cols-4 lg:text-left">
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`${inter.className} mb-3 text-2xl font-semibold`}>
-            Docs{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p
-            className={`${inter.className} m-0 max-w-[30ch] text-sm opacity-50`}
-          >
-            Find in-depth information about Next.js features and API.
-          </p>
-        </a>
-
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`${inter.className} mb-3 text-2xl font-semibold`}>
-            Learn{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p
-            className={`${inter.className} m-0 max-w-[30ch] text-sm opacity-50`}
-          >
-            Learn about Next.js in an interactive course with&nbsp;quizzes!
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`${inter.className} mb-3 text-2xl font-semibold`}>
-            Templates{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p
-            className={`${inter.className} m-0 max-w-[30ch] text-sm opacity-50`}
-          >
-            Discover and deploy boilerplate example Next.js&nbsp;projects.
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`${inter.className} mb-3 text-2xl font-semibold`}>
-            Deploy{' '}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p
-            className={`${inter.className} m-0 max-w-[30ch] text-sm opacity-50`}
-          >
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
-      </div>
-    </main>
-  )
+          </div>
+          <div>
+            <label>7% Tax</label>
+            <input
+              type="number"
+              name="sevenPercentTaxAmount"
+              value={editableData.sevenPercentTaxAmount || ''}
+              onChange={handleChange}
+            />
+          </div>
+          <div>
+            <label>Base Rate</label>
+            <input type="number" name="baseRate" value={editableData.baseRate || ''} onChange={handleChange} />
+          </div>
+          <div>
+            <label>Seven % Paid?</label>
+            <input
+              type="checkbox"
+              name="sevenPercentAlreadyPaid"
+              checked={editableData.sevenPercentAlreadyPaid || false}
+              onChange={handleChange}
+            />
+          </div>
+          <div style={{ flexDirection: 'row' }}>
+            <button onClick={() => setCancelFormSubmission(false)} style={{ marginRight: '1rem' }} type="submit">
+              Submit
+            </button>
+            <button onClick={() => setCancelFormSubmission(true)}>Cancel</button>
+          </div>
+        </form>
+      )}
+      <h2>Customer Data</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Guest Name</th>
+            <th>Checkin</th>
+            <th>Checkout</th>
+            <th>Status</th>
+            <th>Payout</th>
+            <th>5% Tax</th>
+            <th>7% Tax</th>
+            <th>Base Rate</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>{data.map((item, index) => renderItem(item, index))}</tbody>
+      </table>
+    </>
+  );
 }
